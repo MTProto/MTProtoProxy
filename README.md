@@ -23,16 +23,16 @@ Installation is done using the
 ```sh
 $ npm install mtprotoproxy
 ```
-## introduction
+## Introduction
 
 This module is not a tool only, it contains APIs which can be used to cusomize the Telegram MTProto proxy.
 It can be used to log, limit access and create proxy farms that are very hard to filter.
 It is designed to be as simple as possible and to understand and study the protocol.
 This proxy containes only the secured protocol version. Please remeber that in order to use secured version of the protocol, 'dd' should be added to the secret on client side, otherwise this proxy rejects the client.
 
-## documentation
+## Documentation
 
-### constructor
+### Constructor
 
 ```js
 const {MTProtoProxy} = require('mtprotoproxy');
@@ -74,7 +74,7 @@ options is an object containing the following fields:
 * `bytesRead`: total bytes uploaded by the client
 * `bytesWritten`: total bytes downloaded by the client
 * `id`: connections id, which was used previously in the `connection` event.
-## samplecode
+## Sample Code
 
 ```js
 'use strict'
