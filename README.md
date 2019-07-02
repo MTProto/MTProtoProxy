@@ -25,39 +25,39 @@ $ npm install mtprotoproxy
 ```
 ## introduction
 
-This module not a tool only, it contains APIs which can be used to cusomize the Telegram MTProto proxy.
+This module is not a tool only, it contains APIs which can be used to cusomize the Telegram MTProto proxy.
 It can be used to log, limit access and create proxy farms that are very hard to filter.
-It is designed to be as simple as possible, to understand and study the protocol.
-This proxy does not initial proxy protocol. It containes only the secured protocol. Please remeber that in order to use secured version of the protocol, 'dd' should be added to the secret on client side, otherwise this proxy rejects the client.
+It is designed to be as simple as possible and to understand and study the protocol.
+This proxy containes only the secured protocol version. Please remeber that in order to use secured version of the protocol, 'dd' should be added to the secret on client side, otherwise this proxy rejects the client.
 
 ## documentation
 
 ### constructor
 
+```js
 const {MTProtoProxy} = require('mtprotoproxy');
 let telegram=new MTProtoProxy({secret,tag,httpServer,filter})
+```
+When createing a mtprotoproxy, you have to set the following options:
 
-When createing a mtprotoproxy, have to set the following options:
-
-* `secret`: The secret that clients use to connect to the server. It is a 16 bytes length Buffer object. (IT DOES NOT CONTAIN 'dd' FOR ITS FIRST BYTE, the clients have to add 'dd' to this secret.)
+* `secret`: The secret that clients use to connect to the server. It is a 16 bytes length Buffer object. (IT DOES NOT CONTAIN 'dd' FOR ITS FIRST BYTE, although the clients have to add 'dd' to this secret.)
 * `tag`: The advertisement tag used to identify the sponser channel. Can be obtained from @mtproxybot which is an official bot from Telegram.
 
 The following options are optional:
 
-* `httpServer`: An instance of http.Server from NodeJS. It can be used to serve an http server on the same port of MTProtoProxy port.
-* `filter`: An async function, or a function returning a Promise. This function is called with the user addredd, port and can be used to limit access of some users based on their IP address or number of concurrent connections or their traffic quota. If it throw an error, the client will be rejected.
+* `httpServer`: An instance of http.Server from NodeJS. It can be used to serve an http server on the MTProtoProxy port.
+* `filter`: An async function, or a function returning a Promise. This function is called with the user address, port and can be used to limit access some of the users based on their IP address or the number of concurrent connections or their traffic quota. If it throw an error, the client will be rejected.
 
 ### Event
 
 ```js
 MTProtoProxy.on('ready',function(){});
 ```
-Emitted when the proxy is ready to emit events.
+Emitted when the proxy has fetched all the options and ready for the clients to connect.
 
 ```js
 MTProtoProxy.on('connection',function(options){});
 ```
-
 Emitted when a new client, tries to connect to the proxy.
 options is an object containing the following fields:
 
@@ -69,7 +69,11 @@ options is an object containing the following fields:
 MTProtoProxy.on('end',function(options){});
 ```
 Emitted when ever the user, leaves the proxy server or when an error occures.
+options is an object containing the following fields:
 
+* `bytesRead`: total bytes uploaded by the client
+* `bytesWritten`: total bytes downloaded by the client
+* `id`: connections id, which was used previously in the `connection` event.
 ## samplecode
 
 ```js
