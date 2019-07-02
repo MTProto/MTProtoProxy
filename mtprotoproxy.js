@@ -512,11 +512,12 @@ async function handleClient(client)
 
 class MTProtoProxy extends EventEmitter 
 {
-	constructor({httpServer,secret2,tag,filter})
+	constructor(options)
 	{
+		let {httpServer,tag,filter}=options;
 		super();
 		let self=this;
-		secret=secret2;
+		secret=options.secret;
 		AD_TAG=tag;
 		refreshProxyInfo().then(function(){self.emit('ready')});
 		this.proxy=function(client)
