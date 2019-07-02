@@ -6,7 +6,7 @@ Fast and Simple NodeJS MTProto Proxy(Telegram Proxy) with the support of PROMOTI
 - [Install](#install)
 - [Introduction](#introduction)
 - [Documentation](#documentation)
-- [Sample Code](#samplecode)
+- [Sample Code](#sample-code)
 - [Todo](#todo)
 
 ## Install
@@ -48,7 +48,7 @@ The following options are optional:
 * `httpServer`: An instance of http.Server from NodeJS. It can be used to serve an http server on the MTProtoProxy port.
 * `filter`: An async function, or a function returning a Promise. This function is called with the user address, port and can be used to limit access some of the users based on their IP address or the number of concurrent connections or their traffic quota. If it throw an error, the client will be rejected.
 
-### Event
+### Events
 
 ```js
 MTProtoProxy.on('ready',function(){});
