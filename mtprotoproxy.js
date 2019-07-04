@@ -21,6 +21,14 @@ let PROXY_SECRET_HEADER;
 let my_ip;
 let dc;
 
+Array.prototype.removeItem=function(item)
+{
+	let array=this;
+	var index = array.indexOf(item);
+	if (index > -1) {
+	  array.splice(index, 1);
+	}
+}
 
 Number.prototype.toBuffer=function(bytes)
 {
@@ -66,24 +74,130 @@ function refreshProxyInfo()
 			if (!dc[id])
 				dc[id]=[];
 			dc[id].push({host:m[2],port:m[3]})
+			serverPool[id]=[];
 		};
 		my_ip = Buffer.from(arr[2].toString().split('.'));
+		fillPool();
 	}).catch(refreshProxyInfo);
 };
+
+let serverPool=[];
+
+function fillPool()
+{
+	Object.keys(dc).forEach(function(dcId)
+	{
+		for(let i=0;i<5;i++)
+		{
+			getServer(dcId).then(function(s)
+			{
+				serverPool[dcId].push(s);
+			})	
+		}
+	})
+}
+
+
+function getFromPool(dcId)
+{
+	let server=serverPool[dcId].shift();
+	if (!server)
+	{
+		return getServer(dcId);
+	}
+
+	getServer(dcId).then(function(s)
+	{
+		serverPool[dcId].push(s);
+	})
+
+	return server;
+}
 
 function getServer(dcId)
 { 
 	return new Promise(function(accept,reject)
 	{
-		let ret = net.createConnection(dc[dcId].chooseOne());
-		ret.on('connect',function()
+		let server = net.createConnection(dc[dcId].chooseOne());
+		server.on('connect',async function()
 		{
-			accept(ret);
+			extendSocket(server,'server');
+			server.setTimeout(CON_TIMEOUT);
+			const RPC_NONCE = Buffer.from('aa87cb7a','hex');
+			const RPC_HANDSHAKE = Buffer.from('f5ee8276','hex');
+			const RPC_FLAGS = Buffer.from('00000000','hex'); //    # pass as consts to simplify code
+		    const CRYPTO_AES = (1).toBuffer();
+		    const SENDER_PID = Buffer.from('IPIPPRPDTIME');
+		    const PEER_PID = Buffer.from('IPIPPRPDTIME');
+
+		    let my_port=server.localPort;
+			let options=
+			{
+				client:
+				{
+					ip: Buffer.from(my_ip).reverse(), 
+					port: my_port.toBuffer(2), 
+					ts: Math.floor(Date.now()/1000).toBuffer(),
+					nonce: crypto.randomBytes(16)
+				},
+				server:
+				{
+					ip: Buffer.from(server.remoteAddress.IPtoBuffer()).reverse(),
+					port: server.remotePort.toBuffer(2),
+				},
+				middleproxy_secret: PROXY_SECRET
+			};
+
+			server.beginWriteCRC();
+			server.bufferedWrite(Buffer.concat([(44).toBuffer(),(-2).toBuffer(),RPC_NONCE,PROXY_SECRET_HEADER,CRYPTO_AES,options.client.ts,options.client.nonce]));
+			server.endWriteCRC();
+			server.bufferedWrite((4).toBuffer()); //->48 ->Multiplier of 16
+			let msg_len;
+			do
+			{
+				server.beginReadCRC();
+				let  msg_len_bytes = await server.bufferedReadExactly(4);
+				msg_len = msg_len_bytes.readInt32LE();
+			} while (msg_len===4);
+			assertit(msg_len===44);
+			await server.bufferedReadAssert(-2);
+			await server.bufferedReadAssert(RPC_NONCE);
+			await server.bufferedReadAssert(PROXY_SECRET_HEADER);
+			await server.bufferedReadAssert(CRYPTO_AES);
+			options.server.ts = await server.bufferedReadExactly(4);
+			options.server.nonce = await server.bufferedReadExactly(16);
+			await server.endReadCRC();
+			let [encryptkey,decryptkey]=get_middleproxy_aes_key_and_iv(options);
+			let encoder=createAESCBCTransform(encryptkey,false);
+			let decoder=createAESCBCTransform(decryptkey,true);
+			server.addCryptoLayer({decoder,encoder})
+			server.beginWriteCRC();
+			server.bufferedWrite(Buffer.concat([(44).toBuffer(),(-1).toBuffer(),RPC_HANDSHAKE, RPC_FLAGS, SENDER_PID, PEER_PID]));
+			server.endWriteCRC();
+			server.bufferedWrite((4).toBuffer());
+			do
+			{
+				server.beginReadCRC();
+				let msg_len_bytes = await server.bufferedReadExactly(4);
+				msg_len = msg_len_bytes.readInt32LE();
+			} while (msg_len===4);
+			assertit(msg_len===44);
+			await server.bufferedReadAssert(-1)
+			await server.bufferedReadAssert(Buffer.concat([RPC_HANDSHAKE, RPC_FLAGS]))
+			let handshake_sender_pid = server.bufferedReadExactly(12);
+			await server.bufferedReadAssert(SENDER_PID);
+			await server.endReadCRC();
+			await server.bufferedReadAssert(4);
+			server.on('finished',function(){serverPool[dcId].removeItem(server)});
+			accept(server);
 		});
-		ret.on('error',function(err)
+		server.on('error',function(err)
 		{
 			reject(err);
 		})
+	}).catch(function()
+	{
+		return getServer(dcId);
 	})
 }
 
@@ -325,10 +439,7 @@ async function handleClient(client)
 	assertit(proto_tag.compare(Buffer.from('dddddddd','hex'))===0);
 	decoder(trailing);
 	client.addCryptoLayer({decoder,encoder})
-	let server=await getServer(dcId);
-	server.setTimeout(CON_TIMEOUT);
-	extendSocket(server,'server');
-
+	let server=await getFromPool(dcId);
 	client.once('finished',function(err)
 	{
 		server.emit('finished',err);
@@ -337,72 +448,6 @@ async function handleClient(client)
 	{
 		client.emit('finished',err);
 	})
-
-	const RPC_NONCE = Buffer.from('aa87cb7a','hex');
-	const RPC_HANDSHAKE = Buffer.from('f5ee8276','hex');
-	const RPC_FLAGS = Buffer.from('00000000','hex'); //    # pass as consts to simplify code
-    const CRYPTO_AES = (1).toBuffer();
-    const SENDER_PID = Buffer.from('IPIPPRPDTIME');
-    const PEER_PID = Buffer.from('IPIPPRPDTIME');
-
-    let my_port=server.localPort;
-	let options=
-	{
-		client:
-		{
-			ip: Buffer.from(my_ip).reverse(), 
-			port: my_port.toBuffer(2), 
-			ts: Math.floor(Date.now()/1000).toBuffer(),
-			nonce: crypto.randomBytes(16)
-		},
-		server:
-		{
-			ip: Buffer.from(server.remoteAddress.IPtoBuffer()).reverse(),
-			port: server.remotePort.toBuffer(2),
-		},
-		middleproxy_secret: PROXY_SECRET
-	};
-
-	server.beginWriteCRC();
-	server.bufferedWrite(Buffer.concat([(44).toBuffer(),(-2).toBuffer(),RPC_NONCE,PROXY_SECRET_HEADER,CRYPTO_AES,options.client.ts,options.client.nonce]));
-	server.endWriteCRC();
-	server.bufferedWrite((4).toBuffer()); //->48 ->Multiplier of 16
-	let msg_len;
-	do
-	{
-		server.beginReadCRC();
-		let  msg_len_bytes = await server.bufferedReadExactly(4);
-		msg_len = msg_len_bytes.readInt32LE();
-	} while (msg_len===4);
-	assertit(msg_len===44);
-	await server.bufferedReadAssert(-2);
-	await server.bufferedReadAssert(RPC_NONCE);
-	await server.bufferedReadAssert(PROXY_SECRET_HEADER);
-	await server.bufferedReadAssert(CRYPTO_AES);
-	options.server.ts = await server.bufferedReadExactly(4);
-	options.server.nonce = await server.bufferedReadExactly(16);
-	await server.endReadCRC();
-	let [encryptkey,decryptkey]=get_middleproxy_aes_key_and_iv(options);
-	encoder=createAESCBCTransform(encryptkey,false);
-	decoder=createAESCBCTransform(decryptkey,true);
-	server.addCryptoLayer({decoder,encoder})
-	server.beginWriteCRC();
-	server.bufferedWrite(Buffer.concat([(44).toBuffer(),(-1).toBuffer(),RPC_HANDSHAKE, RPC_FLAGS, SENDER_PID, PEER_PID]));
-	server.endWriteCRC();
-	server.bufferedWrite((4).toBuffer());
-	do
-	{
-		server.beginReadCRC();
-		let msg_len_bytes = await server.bufferedReadExactly(4);
-		msg_len = msg_len_bytes.readInt32LE();
-	} while (msg_len===4);
-	assertit(msg_len===44);
-	await server.bufferedReadAssert(-1)
-	await server.bufferedReadAssert(Buffer.concat([RPC_HANDSHAKE, RPC_FLAGS]))
-	let handshake_sender_pid = server.bufferedReadExactly(12);
-	await server.bufferedReadAssert(SENDER_PID);
-	await server.endReadCRC();
-	await server.bufferedReadAssert(4);
 	let out_conn_id = crypto.randomBytes(8); //CHeck
 	async function serverToClient()
 	{
@@ -468,7 +513,7 @@ async function handleClient(client)
 	{
 		let seq_no=0;
 		let remote_ip_port=Buffer.concat([Buffer.from('00000000000000000000ffff','hex'),cl_ip,cl_port.toBuffer(4)]);
-		let our_ip_port   =Buffer.concat([Buffer.from('00000000000000000000ffff','hex'),my_ip,my_port.toBuffer(4)]);
+		let our_ip_port   =Buffer.concat([Buffer.from('00000000000000000000ffff','hex'),my_ip,server.localPort.toBuffer(4)]);
 
 		while(true)
 		{
