@@ -98,7 +98,7 @@ let httpServer=http.createServer(function(req,res)
 
 
 let telegram=new MTProtoProxy({
-secret2:Buffer.from('dddddddddddddddddddddddddddddddd','hex'),
+secret:Buffer.from('dddddddddddddddddddddddddddddddd','hex'),
 tag:Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
 httpServer,
 async filter(options)
