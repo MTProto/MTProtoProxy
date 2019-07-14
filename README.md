@@ -36,7 +36,7 @@ This proxy containes only the secured protocol version. Please remeber that in o
 
 ```js
 const {MTProtoProxy} = require('mtprotoproxy');
-let telegram=new MTProtoProxy({secret,tag,httpServer,filter})
+let telegram=new MTProtoProxy({secrets,tag,httpServer,filter})
 ```
 When createing a mtprotoproxy, you have to set the following options:
 
