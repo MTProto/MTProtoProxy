@@ -12,7 +12,7 @@ const PROXY_SECRET_ADDR = 'https://core.telegram.org/getProxySecret';
 const PUBLIC_IP_ADDR = 'https://api.ipify.org/';
 
 let globaleIndex=0;
-let secret;
+let secrets;
 let AD_TAG;
 const CON_TIMEOUT= 5 * 60 * 1000;
 
@@ -425,18 +425,28 @@ async function handleClient(client)
 	let enc_prekey_and_iv = Buffer.from(dec_prekey_and_iv).reverse();
 	let dec = {prekey : dec_prekey_and_iv.slice(0,32),iv : dec_prekey_and_iv.slice(32)}
 	let enc = {prekey : enc_prekey_and_iv.slice(0,32),iv : enc_prekey_and_iv.slice(32)}
-	dec.key = crypto.createHash('sha256').update(Buffer.concat([dec.prekey, secret])).digest();
-	enc.key = crypto.createHash('sha256').update(Buffer.concat([enc.prekey, secret])).digest();
-	let decoder = createAESCTRTransform(dec,true);
-	let encoder = createAESCTRTransform(enc,false);
-	decoder(skip);
-	decoder(dec_prekey_and_iv);
-	let proto_tag = decoder(dec_proto_tag);
+	let decoder,encoder;
+	let permission=false;
+	for (let secret in secrets)
+	{
+		dec.key = crypto.createHash('sha256').update(Buffer.concat([dec.prekey, secret])).digest();
+		enc.key = crypto.createHash('sha256').update(Buffer.concat([enc.prekey, secret])).digest();
+		decoder = createAESCTRTransform(dec,true);
+		encoder = createAESCTRTransform(enc,false);
+		decoder(skip);
+		decoder(dec_prekey_and_iv);
+		let proto_tag = decoder(dec_proto_tag);
+		if (proto_tag.compare(Buffer.from('dddddddd','hex'))!==0)
+			continue;
+		permission=true;
+		break;
+	}
+
+	assertit(permission,'No matching secret');
 	let dcId = decoder(dec_dcId).readInt16LE();
 	assertit(dcId>=-5);
 	assertit(dcId<=5);
 	assertit(dcId!==0);
-	assertit(proto_tag.compare(Buffer.from('dddddddd','hex'))===0);
 	decoder(trailing);
 	client.addCryptoLayer({decoder,encoder})
 	let server=await getFromPool(dcId);
@@ -562,7 +572,7 @@ class MTProtoProxy extends EventEmitter
 		let {httpServer,tag,filter}=options;
 		super();
 		let self=this;
-		secret=options.secret;
+		secrets=options.secrets;
 		AD_TAG=tag;
 		refreshProxyInfo().then(function(){self.emit('ready')});
 		this.proxy=function(client)
