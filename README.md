@@ -40,7 +40,7 @@ let telegram=new MTProtoProxy({secret,tag,httpServer,filter})
 ```
 When createing a mtprotoproxy, you have to set the following options:
 
-* `secret`: The secret that clients use to connect to the server. It is a 16 bytes length Buffer object. (IT DOES NOT CONTAIN 'dd' FOR ITS FIRST BYTE, although the clients have to add 'dd' to this secret.)
+* `secrets`: An array of secrets that clients have to use to connect to the server. It is an array of 16 bytes length Buffer objects. (Buffers do not contain 'dd' for their first byte, although the clients have to add 'dd' to these secrets.)
 * `tag`: The advertisement tag used to identify the sponser channel. Can be obtained from @mtproxybot which is an official bot from Telegram.
 
 The following options are optional:
@@ -98,7 +98,7 @@ let httpServer=http.createServer(function(req,res)
 
 
 let telegram=new MTProtoProxy({
-secret:Buffer.from('dddddddddddddddddddddddddddddddd','hex'),
+secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
 tag:Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
 httpServer,
 async filter(options)
@@ -231,7 +231,7 @@ let httpServer=http.createServer(function(req,res)
 
 let telegram=new MTProtoProxy(
 	{
-		secret:Buffer.from('dddddddddddddddddddddddddddddddd','hex'),
+		secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
 		tag:   Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
 		httpServer,
 		async filter(options)
