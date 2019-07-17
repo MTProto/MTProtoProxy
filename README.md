@@ -80,7 +80,7 @@ options is an object containing the following fields:
 ```js
 'use strict'
 
-const {MTProtoProxy} = require('./mtprotoproxy');
+const {MTProtoProxy} = require('mtprotoproxy');
 const http = require('http');
 const net = require('net');
 
@@ -135,7 +135,7 @@ Proxy server with the support for login/logout and complete web reporter.
 ```js
 'use strict'
 
-const {MTProtoProxy} = require('./mtprotoproxy2');
+const {MTProtoProxy} = require('mtprotoproxy');
 const http = require('http');
 const net = require('net');
 
@@ -284,7 +284,7 @@ NodeJS runs on one core. If you want to take the advantage of clustering on mult
 'use strict'
 const cluster = require('cluster');
 const numCPUs = 4;//require('os').cpus().length;
-const {MTProtoProxy} = require('./mtprotoproxy2');
+const {MTProtoProxy} = require('mtprotoproxy');
 const http = require('http');
 const net = require('net');
 
