@@ -38,7 +38,7 @@ This proxy contains the secured protocol and Fake TLS version. Unsecured protoco
 const {MTProtoProxy} = require('mtprotoproxy');
 let telegram=new MTProtoProxy({secrets,httpServer,enter,leave,ready})
 ```
-When createing a mtprotoproxy, you have to set the following options:
+When creating a mtprotoproxy, you have to set the following options:
 
 * `secrets`: An array of secrets that clients have to use to connect to the server. It is an array of 34 character length strings. (Strings should start eighter with 'dd' or 'ee'; when publishing proxies having their secret start with 'ee' you have to manually add SNI name to the end of the proxy. i. e. if your secret inside the program is ee00000000000000000000000000000000 you have to publish your secret as ee00000000000000000000000000000000676F6F676C652E636F6D which 676F6F676C652E636F6D is the hex decoded presentation of 'google.com' and is called SNI)
 * `enter`: An async function, or a function returning a Promise. This function is called with the user address, port (user's local port), id, secretIndex (which is the index of the secret that client used to connect to proxy) and SNI (in the case of fake TLS proxies). 
@@ -397,7 +397,7 @@ else
 
 	let telegram=new MTProtoProxy(
 		{
-			secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
+			secrets:['dddddddddddddddddddddddddddddddd'],
 			httpServer,
 			async enter()
 			{
