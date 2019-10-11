@@ -397,7 +397,7 @@ else
 
 	let telegram=new MTProtoProxy(
 		{
-			secrets:['dddddddddddddddddddddddddddddddd'],
+			secrets:['ee00000000000000000000000000000000'],
 			httpServer,
 			async enter()
 			{
