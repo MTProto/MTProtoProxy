@@ -1,5 +1,5 @@
 # MTProtoProxy
-Fast and Simple NodeJS MTProto Proxy(Telegram Proxy) with the support of PROMOTION CHANNELS
+Fast and Simple NodeJS MTProto Proxy(Telegram Proxy) with the support of PROMOTION CHANNELS, Secured Connection and Fake TLS.
 
 ## Table of Contents
 
@@ -29,52 +29,41 @@ $ npm install mtprotoproxy
 This module is not a tool only, it contains APIs which can be used to cusomize the Telegram MTProto proxy.
 It can be used to log, limit access and create proxy farms that are very hard to filter.
 It is designed to be as simple as possible and to understand and study the protocol.
-This proxy containes only the secured protocol version. Please remeber that in order to use secured version of the protocol, 'dd' should be added to the secret on client side, otherwise this proxy rejects the client.
-
+This proxy contains the secured protocol and Fake TLS version. Unsecured protocol is not supported. Please remeber that in order to use secured version of the protocol, secret should be started with 'dd' and for Fake TLS protocol, secret should be started with 'ee'.
 ## Documentation
 
 ### Constructor
 
 ```js
 const {MTProtoProxy} = require('mtprotoproxy');
-let telegram=new MTProtoProxy({secrets,tag,httpServer,filter})
+let telegram=new MTProtoProxy({secrets,httpServer,enter,leave,ready})
 ```
 When createing a mtprotoproxy, you have to set the following options:
 
-* `secrets`: An array of secrets that clients have to use to connect to the server. It is an array of 16 bytes length Buffer objects. (Buffers do not contain 'dd' for their first byte, although the clients have to add 'dd' to these secrets.)
-* `tag`: The advertisement tag used to identify the sponser channel. Can be obtained from @mtproxybot which is an official bot from Telegram.
+* `secrets`: An array of secrets that clients have to use to connect to the server. It is an array of 34 character length strings. (Strings should start eighter with 'dd' or 'ee'; when publishing proxies having their secret start with 'ee' you have to manually add SNI name to the end of the proxy. i. e. if your secret inside the program is ee00000000000000000000000000000000 you have to publish your secret as ee00000000000000000000000000000000676F6F676C652E636F6D which 676F6F676C652E636F6D is the hex decoded presentation of 'google.com' and is called SNI)
+* `enter`: An async function, or a function returning a Promise. This function is called with the user address, port (user's local port), id, secretIndex (which is the index of the secret that client used to connect to proxy) and SNI (in the case of fake TLS proxies). 
+
+	* `address`: The IP address of the client
+	* `port`: The local port of the client
+	* `id`: connections id, an Integer number starting from zero, increamenting by one, which is used to label the connection.
+	* `secretIndex`: is the index of the secret that client used to connect to proxy
+	* `SNI`: SNI in the case of fake TLS proxies,
+
+This data can be used to limit the access of users based on their IP address or the number of concurrent connections or their traffic quota. If it throw an error, the client will be rejected. This function should return AD_TAG which is The advertisement tag used to identify the sponser channel. Can be obtained from @mtproxybot which is an official bot from Telegram. It means that based on the user's IP address, secret and SNI, this function can decide to change advertisement tag. Please note that the rapid change of AD_TAG for a specific user, will cause the telegram client not to show the advertisement.
+* `leave`: A function that is called when ever the user leaves the proxy server or when an error occures.
+options is an object containing the following fields:
+
+	* `bytesRead`: total bytes uploaded by the client
+	* `bytesWritten`: total bytes downloaded by the client
+	* `id`: connections id, which was used previously in the `enter` async function.
+	* `error`: error, the reason that connection was closed.
+* `ready`: A function that is called when the proxy has fetched all the options and ready for the clients to connect.
+
+
 
 The following options are optional:
-
 * `httpServer`: An instance of http.Server from NodeJS. It can be used to serve an http server on the MTProtoProxy port.
-* `filter`: An async function, or a function returning a Promise. This function is called with the user address, port and can be used to limit access some of the users based on their IP address or the number of concurrent connections or their traffic quota. If it throw an error, the client will be rejected.
 
-### Events
-
-```js
-MTProtoProxy.on('ready',function(){});
-```
-Emitted when the proxy has fetched all the options and ready for the clients to connect.
-
-```js
-MTProtoProxy.on('connection',function(options){});
-```
-Emitted when a new client, tries to connect to the proxy.
-options is an object containing the following fields:
-
-* `address`: The IP address of the client
-* `port`: The local port of the client
-* `id`: connections id, an Integer number starting from zero, increamenting by one, which is used to label the connection.
-
-```js
-MTProtoProxy.on('end',function(options){});
-```
-Emitted when ever the user, leaves the proxy server or when an error occures.
-options is an object containing the following fields:
-
-* `bytesRead`: total bytes uploaded by the client
-* `bytesWritten`: total bytes downloaded by the client
-* `id`: connections id, which was used previously in the `connection` event.
 ## Sample Code
 
 ```js
@@ -83,52 +72,58 @@ options is an object containing the following fields:
 const {MTProtoProxy} = require('mtprotoproxy');
 const http = require('http');
 const net = require('net');
-
+let ad_tag='cae554f8cbafba5b343a2d4f72e2f8e4'
 
 let totalBytesRead=0;
 let totalBytesWritten=0;
 let totalConnections=0
 let ongoingConnections=0
 let stats=[];
+let tracker=[];
 
 let httpServer=http.createServer(function(req,res)
 {
 	res.write('<html><h1>Dear '+req.socket.remoteAddress+', Welcome; Here is the report:</h1>')
-	res.end(`<h2>Statistics</h2><div>totalBytesRead: ${totalBytesRead}</div><div>totalBytesWritten: ${totalBytesWritten}</div><div>totalConnections: ${totalConnections}</div><div>ongoingConnections: ${ongoingConnections}</div><h2>Current clients:</h2><div>${Object.keys(stats).map(index=>stats[index]).join('</div><div>')}</div></html>`);
+	res.end(`<h2>Statistics</h2><div>totalBytesRead: ${totalBytesRead}</div><div>totalBytesWritten: ${totalBytesWritten}</div><div>totalConnections: ${totalConnections}</div><div>ongoingConnections: ${ongoingConnections}</div><h2>Current clients:</h2><div>${Object.keys(stats).map(address=>`${address}:${stats[address]}`).join('</div><div>')}</div></html>`);
 });
 
 
 let telegram=new MTProtoProxy({
-secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
-tag:Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
+secrets:['dd00000000000000000000000000000000','ee00000000000000000000000000000000'],
 httpServer,
-async filter(options)
+async enter(options)
 {
+	tracker[options.id]=options;
+	console.log('New client:',options);
+	ongoingConnections++;
+	if (stats[options.address])
+		stats[options.address]++;
+	else
+		stats[options.address]=1;
 	if (options.address==='8.8.8.8')
 		return Promise.reject(new Error('Forbidden conuntry'));  //or simply throw error
-}
-});
-telegram.on('ready',function()
+	return ad_tag;
+},
+leave(options)
 {
-	telegram.on('connection',function(options)
-	{
-		console.log('New client:',options);
-		ongoingConnections++;
-		stats[options.id]=options.address;
-	});
-	telegram.on('end',function(options)
-	{
-		console.log('Client left:',options);
-		totalBytesRead+=options.bytesRead;
-		totalBytesWritten+=options.bytesWritten;
-		delete stats[options.id];
-		totalConnections++;
-		ongoingConnections--;
-	})
+	console.log('Client left:',options);
+	totalBytesRead+=options.bytesRead;
+	totalBytesWritten+=options.bytesWritten;
+	stats[tracker[options.id].address]--;
+	if (stats[tracker[options.id].address]===0)
+		delete stats[tracker[options.id].address];
+	totalConnections++;
+	ongoingConnections--;
+	delete tracker[options.id]
+},
+ready()
+{
+	console.log('ready')
 	let proxy=net.createServer(telegram.proxy);
 	proxy.on('error',function(err){console.log(err)})
-	proxy.listen(2600,'0.0.0.0');
-})
+	proxy.listen(2500,'0.0.0.0');
+}
+});
 ```
 
 Proxy server with the support for login/logout and complete web reporter. 
@@ -232,11 +227,14 @@ let httpServer=http.createServer(function(req,res)
 
 let telegram=new MTProtoProxy(
 	{
-		secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
-		tag:   Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
+		secrets:['dd00000000000000000000000000000000'],
 		httpServer,
-		async filter(options)
+		async enter(options)
 		{
+
+			console.log('New client:',options);
+			ongoingConnections++;
+			stats[options.id]=Object.assign({ended:false,ctime: +new Date()},options);
 			if ((allowedClients[options.address])&&((+new Date()-allowedClients[options.address])<3*3600*1000))
 			{
 				allowedClients[options.address]=+new Date();
@@ -245,40 +243,35 @@ let telegram=new MTProtoProxy(
 			else
 			{
 				delete allowedClients[options.address]
-				return Promise.reject(new Error('Forbidden conuntry'));  //or simply throw error
+				return Promise.reject(new Error('Forbidden user'));  //or simply throw error
 			}
+			return 'cae554f8cbafba5b343a2d4f72e2f8e4';
+		},
+		ready()
+		{
+			let proxy=net.createServer(telegram.proxy);
+			proxy.on('error',function(err){console.log(err)})
+			proxy.listen(8080,'0.0.0.0');
+		},
+		leave()
+		{
+			console.log('Client left:',options);
+			allowedClients[options.address]=+new Date();
+			totalBytesRead+=options.bytesRead;
+			totalBytesWritten+=options.bytesWritten;
+			Object.assign(stats[options.id],options);
+			stats[options.id].ended=true;
+			stats[options.id].dtime=+new Date();
+			totalConnections++;
+			ongoingConnections--;
 		}
 	}
 );
-telegram.on('ready',function()
-{
-	telegram.on('connection',function(options)
-	{
-		console.log('New client:',options);
-		ongoingConnections++;
-		stats[options.id]=Object.assign({ended:false,ctime: +new Date()},options);
-	});
-	telegram.on('end',function(options)
-	{
-		console.log('Client left:',options);
-		allowedClients[options.address]=+new Date();
-		totalBytesRead+=options.bytesRead;
-		totalBytesWritten+=options.bytesWritten;
-		Object.assign(stats[options.id],options);
-		stats[options.id].ended=true;
-		stats[options.id].dtime=+new Date();
-		totalConnections++;
-		ongoingConnections--;
-	})
-	let proxy=net.createServer(telegram.proxy);
-	proxy.on('error',function(err){console.log(err)})
-	proxy.listen(8080,'0.0.0.0');
-})
 ```
 
 ## Multi Core
 
-NodeJS runs on one core. If you want to take the advantage of clustering on multiple processes, you have to fork the process and implement all the messaging between Mater and Workers. The following code is a sample of implementation for the support of clustering.
+NodeJS runs on one core. If you want to take the advantage of clustering on multiple processes, you have to fork the process and implement all the messaging between Master and Workers. The following code is a sample of implementation for the support of clustering.
 
 ```js
 'use strict'
@@ -405,24 +398,20 @@ else
 	let telegram=new MTProtoProxy(
 		{
 			secrets:[Buffer.from('dddddddddddddddddddddddddddddddd','hex')],
-			tag:   Buffer.from('cae554f8cbafba5b343a2d4f72e2f8e4','hex'),
 			httpServer,
-			async filter(){}
+			async enter()
+			{
+				process.send(Object.assign({eventName:'connection'},options));
+				return 'cae554f8cbafba5b343a2d4f72e2f8e4'
+			},
+			leave(){process.send(Object.assign({eventName:'end'},options))},
+			ready()
+			{
+				let proxy=net.createServer(telegram.proxy);
+				proxy.on('error',function(err){console.log(err)})
+				proxy.listen(8080,'0.0.0.0');
+			}
 		}
 	);
-	telegram.on('ready',function()
-	{
-		telegram.on('connection',function(options)
-		{
-			process.send(Object.assign({eventName:'connection'},options));
-		});
-		telegram.on('end',function(options)
-		{
-			process.send(Object.assign({eventName:'end'},options));
-		})
-		let proxy=net.createServer(telegram.proxy);
-		proxy.on('error',function(err){console.log(err)})
-		proxy.listen(8080,'0.0.0.0');
-	})
 }
 ```
