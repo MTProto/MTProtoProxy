@@ -2,13 +2,46 @@
 Fast and Simple NodeJS MTProto Proxy(Telegram Proxy) with the support of PROMOTION CHANNELS, Secured Connection and Fake TLS.
 
 ## Table of Contents
-
+- [Fast setup](#fast-setup)
 - [Install](#install)
 - [Introduction](#introduction)
 - [Documentation](#documentation)
 - [Sample Code](#sample-code)
 - [Multi Core](#multi-core)
 - [Todo](#todo)
+
+## Fast setup
+
+If you do not want to write any program, if you do not khow about NodeJS, if you have not installed nodejs, 
+but you want to serve a proxy server, first run the following command in the bash:
+
+```sh
+wget -c https://raw.githubusercontent.com/MTProto/MTProtoProxy/master/fastsetup.sh
+```
+then edit ./fastsetup.sh by entering 
+```sh
+nano ./fastsetup.sh
+```
+Just edit the following lines with your desired options (sercrets are separated by space, each of which is 34 hexadecimal character and starts with eighter 'ee' or 'dd'. 'ee' means the proxy is fake TLS, remember when you publish fake TLS proxies, you have to add TLS to the secret, i. e. if your secret here is ee00000000000000000000000000000000 you have to publish it with ee00000000000000000000000000000000676f6f676c652e636f6d as secret where 676f6f676c652e636f6d is hexadecimal representation of 'google.com')
+```sh
+export adtag=cae554f8cbafba5b343a2d4f72e2f8e4
+export port=5050
+export secrets='dd00000000000000000000000000000000 ee00000000000000000000000000000000'
+export num_cpus=4
+```
+Save the file, and run it by entering
+```sh
+bash ./fastsetup.sh
+```
+
+To stop the proxy, find the process id of your server by entering:
+
+```sh
+ps aux | grep node
+```
+and then kill the desired process using kill command.
+
+Skip reading the rest of the document!!!! Your proxy is ready!!!
 
 ## Install
 
@@ -253,7 +286,7 @@ let telegram=new MTProtoProxy(
 			proxy.on('error',function(err){console.log(err)})
 			proxy.listen(8080,'0.0.0.0');
 		},
-		leave()
+		leave(options)
 		{
 			console.log('Client left:',options);
 			allowedClients[options.address]=+new Date();
@@ -399,12 +432,12 @@ else
 		{
 			secrets:['ee00000000000000000000000000000000'],
 			httpServer,
-			async enter()
+			async enter(options)
 			{
 				process.send(Object.assign({eventName:'connection'},options));
 				return 'cae554f8cbafba5b343a2d4f72e2f8e4'
 			},
-			leave(){process.send(Object.assign({eventName:'end'},options))},
+			leave(options){process.send(Object.assign({eventName:'end'},options))},
 			ready()
 			{
 				let proxy=net.createServer(telegram.proxy);
