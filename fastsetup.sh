@@ -17,4 +17,4 @@ fi
 
 
 chmod +x ./node
-nohup ./node ./sample1.js </dev/null >/log1.txt 2>&1 &
+nohup ./node ./sample1.js </dev/null >./log.txt 2>&1 &
