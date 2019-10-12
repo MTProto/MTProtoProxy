@@ -33,6 +33,7 @@ Save the file, and run it by entering
 ```sh
 bash ./fastsetup.sh
 ```
+For the report, surf the address: http://YOURIP:PORT/clients
 
 To stop the proxy, find the process id of your server by entering:
 
