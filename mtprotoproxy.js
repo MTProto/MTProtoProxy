@@ -298,7 +298,7 @@ let extendedSocket=
 		self.errorCallback=function(){};
 		self.inputBuffer=Buffer.alloc(0);
 		self.cryptoLayers=[];
-		self.on('data',function(data){self.ondata.call(self,data)}); //why
+		self.on('data',function(data){try{self.ondata.call(self,data)}catch(e){self.emit('finished',e)}}); //why
 		self.on('timeout',function(){self.emit('finished',new Error(`${self.localName} timedout`))})
 		self.on('end'  ,function()		{self.emit('finished',new Error(`${self.localName} ended`))});
 		self.on('error',function(err)	{self.emit('finished',err)});
