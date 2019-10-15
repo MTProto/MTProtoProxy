@@ -1,5 +1,6 @@
 'use strict'
 
+const os = require('os');
 const https=require('https');
 const vm = require('vm');
 const cluster = require('cluster');
