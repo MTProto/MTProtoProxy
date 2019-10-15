@@ -6,6 +6,7 @@ const cluster = require('cluster');
 const http = require('http');
 const net = require('net');
 
+Object.keys(os.constants.signals).forEach(function(sig){process.on(sig,function(){console.log(`Received signal: ${sig}`)})});
 
 let [num_cpus,adtag,port,secrets]=['num_cpus','adtag','port','secrets'].map(function(name){return process.env[name]});
 secrets=secrets.split(' ');
