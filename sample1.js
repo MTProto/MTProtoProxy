@@ -7,7 +7,7 @@ const cluster = require('cluster');
 const http = require('http');
 const net = require('net');
 
-Object.keys(os.constants.signals).forEach(function(sig){process.on(sig,function(){console.log(`Received signal: ${sig}`)})});
+Object.keys(os.constants.signals).filter(function(sig){return (sig!=='SIGKILL')&&(sig!=='SIGSTOP')}).forEach(function(sig){process.on(sig,function(){console.log(`Received signal: ${sig}`)})});
 
 let [num_cpus,adtag,port,secrets]=['num_cpus','adtag','port','secrets'].map(function(name){return process.env[name]});
 secrets=secrets.split(' ');
